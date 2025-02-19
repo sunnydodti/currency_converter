@@ -1,12 +1,14 @@
-import 'dart:convert';
+import 'dart:async';
 
-import 'package:currency_converter/models/currency.dart';
-import 'package:currency_converter/widgets/result_tile.dart';
+import 'package:currency_converter/data/file_db.dart';
+import 'package:currency_converter/models/exchange_rate.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:http/http.dart' as http;
+import 'package:hive_ce/hive.dart';
 
-import '../widgets/currency_tile.dart';
+import '../data/constants.dart';
+import '../models/currency_code.dart';
+import '../service/api_service.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -16,21 +18,26 @@ class SearchPage extends StatefulWidget {
 }
 
 class _SearchPageState extends State<SearchPage> {
-  List<Currency> _currencies = [];
-  List<double> exchangeRates = [];
+  Box box = Hive.box(Constants.box);
 
-  Currency? selectedCurrency;
-  Currency? resultCurrency;
+  List<CurrencyCode> _currencies = [];
+  List<ExchangeRate> exchangeRates = [];
+
+  late CurrencyCode selected;
+  late CurrencyCode target;
   double amount = 0.0;
 
   String currencyDate = "";
   TextEditingController searchController = TextEditingController();
+  TextEditingController resultController = TextEditingController();
+
+  Timer _debounce = Timer(Duration(milliseconds: 1), () {});
 
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
-    _initializeCurrencies();
+    _initializeDefaults();
   }
 
   @override
@@ -44,11 +51,12 @@ class _SearchPageState extends State<SearchPage> {
             GestureDetector(
               child: Text("refresh"),
               onTap: () {
-                _initializeCurrencies();
+                _initializeDefaults();
               },
             ),
             _buildSearch(),
             _buildResults(),
+            Divider(),
             _buildCurrencies(),
             _buildCurrencyList(),
           ],
@@ -62,9 +70,9 @@ class _SearchPageState extends State<SearchPage> {
       child: ListView.builder(
         itemCount: _currencies.length,
         itemBuilder: (context, index) {
-          return CurrencyTile(
-            currency: _currencies[index],
-            multiplier: amount,
+          return ListTile(
+            title: Text(_currencies[index].name),
+            subtitle: Text(_currencies[index].code),
           );
         },
       ),
@@ -76,18 +84,20 @@ class _SearchPageState extends State<SearchPage> {
       padding: const EdgeInsets.all(16.0),
       child: Row(
         children: [
-          DropdownButton<Currency>(
-            value: selectedCurrency,
-            items: _currencies.map((Currency currency) {
-              return DropdownMenuItem<Currency>(
+          DropdownButton<CurrencyCode>(
+            value: selected,
+            items: _currencies.map((CurrencyCode currency) {
+              return DropdownMenuItem<CurrencyCode>(
                 value: currency,
                 child: Text(currency.code),
               );
             }).toList(),
             onChanged: (value) {
               setState(() {
-                selectedCurrency = value;
+                selected = value!;
               });
+
+              // trigger a debounced search
             },
           ),
           Spacer(),
@@ -96,6 +106,8 @@ class _SearchPageState extends State<SearchPage> {
               controller: searchController,
               decoration: InputDecoration(
                 hintText: "0.0",
+                helperText: selected.name,
+                helperStyle: TextStyle(overflow: TextOverflow.fade),
               ),
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -105,6 +117,14 @@ class _SearchPageState extends State<SearchPage> {
                   return;
                 }
                 setState(() => amount = double.parse(value));
+
+                // trigger a debounced search
+                Timer(Duration(milliseconds: 1000), () {
+                  _debounce.cancel();
+                  _debounce = Timer(Duration(milliseconds: 1000), () {
+                    _search();
+                  });
+                });
               },
             ),
           ),
@@ -118,30 +138,50 @@ class _SearchPageState extends State<SearchPage> {
       padding: const EdgeInsets.all(16.0),
       child: Row(
         children: [
-          DropdownButton<Currency>(
-            value: resultCurrency,
-            items: _currencies.map((Currency currency) {
-              return DropdownMenuItem<Currency>(
+          DropdownButton<CurrencyCode>(
+            value: target,
+            items: _currencies.map((CurrencyCode currency) {
+              return DropdownMenuItem<CurrencyCode>(
                 value: currency,
                 child: Text(currency.code),
               );
             }).toList(),
             onChanged: (value) {
               setState(() {
-                resultCurrency = value;
+                target = value!;
               });
             },
           ),
           Spacer(),
-          ResultTile(result: _resultAmount()),
+          Expanded(
+            child: TextField(
+              enabled: false,
+              controller: resultController,
+              decoration: InputDecoration(
+                hintText: "0.0",
+                helperText: target.name,
+                helperStyle: TextStyle(overflow: TextOverflow.fade),
+              ),
+              readOnly: true,
+            ),
+          ),
+          // ResultTile(result: _resultAmount()),
         ],
       ),
     );
   }
 
   String? _resultAmount() {
-    String? result = selectedCurrency?.getRateFor(resultCurrency!, amount);
-    return result;
+    if (exchangeRates.isEmpty) return null;
+
+    ExchangeRate? rate = exchangeRates.firstWhere(
+        (element) => element.code == target.code,
+        orElse: () => ExchangeRate(code: "", rate: 0.0));
+    if (rate.rate != 0.0) {
+      double result = amount * rate.rate;
+      return result.toStringAsFixed(2);
+    }
+    return "0.0";
   }
 
   Widget _buildCurrencies() {
@@ -156,56 +196,32 @@ class _SearchPageState extends State<SearchPage> {
     }
   }
 
-  void _initializeCurrencies() async {
-    Map<String, String> currencies = await _getCurrencyList();
-    Map<dynamic, dynamic> exchangeRates = await _getExchangeRates();
-    List<Currency> currencyList = [];
-    List<double> exchangeRateList = [];
-    for (var key in currencies.keys) {
-      currencyList.add(Currency(
-          name: currencies[key]!,
-          code: key.toUpperCase(),
-          rate: _parseCurrency(exchangeRates[key])));
-      exchangeRateList.add(0.0);
-    }
-    _currencies.clear();
+  void _initializeDefaults() {
+    _currencies = FileDb.currenciesList;
+
+    selected = FileDb.selected;
+    target = FileDb.target;
+
+    _currencies.removeWhere((e) => e.code == selected.code);
+    _currencies.removeWhere((e) => e.code == target.code);
+    _currencies.add(selected);
+    _currencies.add(target);
+
+    amount = FileDb.amount;
+    setState(() {});
+  }
+
+  void _search() async {
+    List<Map<dynamic, dynamic>> result =
+        await ApiService.getExchangeRate(selected.code);
+    if (result.isEmpty) return;
+
+    exchangeRates = List<ExchangeRate>.from(result.map((x) {
+      return ExchangeRate.fromJson(x);
+    }));
+
     setState(() {
-      _currencies = currencyList;
-      // exchangeRates = exchangeRateList;
+      resultController.text = _resultAmount() ?? "";
     });
-  }
-
-  Future<Map<String, String>> _getCurrencyList() async {
-    Map<String, String> currencies = {};
-
-    try {
-      final response = await http.get(Uri.parse(
-          'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies.json'));
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = json.decode(response.body);
-        data.forEach((key, value) {
-          currencies[key] = value;
-        });
-      }
-    } catch (e) {
-      print(e);
-    }
-    return currencies;
-  }
-
-  Future<Map<dynamic, dynamic>> _getExchangeRates() async {
-    Map<String, dynamic> exchangeRates = {};
-
-    try {
-      final response = await http.get(Uri.parse(
-          'https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/eur.json'));
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = json.decode(response.body);
-        exchangeRates = data['eur'];
-      }
-    } catch (e) {
-      print(e);
-    }
-    return exchangeRates;
   }
 }

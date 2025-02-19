@@ -1,7 +1,11 @@
 import 'package:currency_converter/pages/search_page.dart';
 import 'package:flutter/material.dart';
 
-void main() {
+import 'service/startup_service.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await StartupService.init();
   runApp(const MyApp());
 }
 
