@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:currency_converter/data/file_db.dart';
-import 'package:currency_converter/models/exchange_rate.dart';
+import 'package:currency_converter/widgets/currency_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_ce/hive.dart';
@@ -21,7 +21,7 @@ class _SearchPageState extends State<SearchPage> {
   Box box = Hive.box(Constants.box);
 
   List<CurrencyCode> _currencies = [];
-  List<ExchangeRate> exchangeRates = [];
+  Map<dynamic, dynamic> exchangeRates = {};
 
   late CurrencyCode selected;
   late CurrencyCode target;
@@ -48,16 +48,9 @@ class _SearchPageState extends State<SearchPage> {
         padding: const EdgeInsets.all(8.0),
         child: Column(
           children: [
-            GestureDetector(
-              child: Text("refresh"),
-              onTap: () {
-                _initializeDefaults();
-              },
-            ),
             _buildSearch(),
             _buildResults(),
             Divider(),
-            _buildCurrencies(),
             _buildCurrencyList(),
           ],
         ),
@@ -70,9 +63,16 @@ class _SearchPageState extends State<SearchPage> {
       child: ListView.builder(
         itemCount: _currencies.length,
         itemBuilder: (context, index) {
-          return ListTile(
-            title: Text(_currencies[index].name),
-            subtitle: Text(_currencies[index].code),
+          double rate = 0.0;
+          if (exchangeRates.isNotEmpty) {
+            rate =
+                double.parse(exchangeRates[_currencies[index].code].toString());
+          }
+
+          return CurrencyTile(
+            currency: _currencies[index],
+            amount: amount,
+            rate: rate ?? 0.0,
           );
         },
       ),
@@ -92,13 +92,7 @@ class _SearchPageState extends State<SearchPage> {
                 child: Text(currency.code),
               );
             }).toList(),
-            onChanged: (value) {
-              setState(() {
-                selected = value!;
-              });
-
-              // trigger a debounced search
-            },
+            onChanged: _onSelectedChange,
           ),
           Spacer(),
           Expanded(
@@ -111,21 +105,7 @@ class _SearchPageState extends State<SearchPage> {
               ),
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              onChanged: (value) {
-                if (value.isEmpty) {
-                  setState(() => amount = 0.0);
-                  return;
-                }
-                setState(() => amount = double.parse(value));
-
-                // trigger a debounced search
-                Timer(Duration(milliseconds: 1000), () {
-                  _debounce.cancel();
-                  _debounce = Timer(Duration(milliseconds: 1000), () {
-                    _search();
-                  });
-                });
-              },
+              onChanged: _onAmountChange,
             ),
           ),
         ],
@@ -149,6 +129,7 @@ class _SearchPageState extends State<SearchPage> {
             onChanged: (value) {
               setState(() {
                 target = value!;
+                resultController.text = _resultAmount() ?? "";
               });
             },
           ),
@@ -173,27 +154,12 @@ class _SearchPageState extends State<SearchPage> {
 
   String? _resultAmount() {
     if (exchangeRates.isEmpty) return null;
+    if (!exchangeRates.containsKey(target.code)) return "0.0";
+    double rate = exchangeRates[target.code];
 
-    ExchangeRate? rate = exchangeRates.firstWhere(
-        (element) => element.code == target.code,
-        orElse: () => ExchangeRate(code: "", rate: 0.0));
-    if (rate.rate != 0.0) {
-      double result = amount * rate.rate;
-      return result.toStringAsFixed(2);
-    }
-    return "0.0";
-  }
-
-  Widget _buildCurrencies() {
-    return SizedBox.shrink();
-  }
-
-  double _parseCurrency(dynamic value) {
-    try {
-      return double.parse(value.toString()).roundToDouble();
-    } catch (e) {
-      return 0.0;
-    }
+    if (rate == 0 || rate == 0.0) return "0.0";
+    double result = amount * rate;
+    return result.toStringAsFixed(5);
   }
 
   void _initializeDefaults() {
@@ -212,16 +178,46 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   void _search() async {
-    List<Map<dynamic, dynamic>> result =
+    Map<dynamic, dynamic> result =
         await ApiService.getExchangeRate(selected.code);
     if (result.isEmpty) return;
 
-    exchangeRates = List<ExchangeRate>.from(result.map((x) {
-      return ExchangeRate.fromJson(x);
-    }));
+    // exchangeRates = List<ExchangeRate>.from(result.map((x) {
+    //   return ExchangeRate.fromJson(x);
+    // }));
 
     setState(() {
+      exchangeRates = result;
       resultController.text = _resultAmount() ?? "";
+    });
+  }
+
+  void _onAmountChange(String value) {
+    if (value.isEmpty) {
+      setState(() => amount = 0.0);
+      return;
+    }
+    String result = _resultAmount() ?? "";
+    setState(() {
+      amount = double.parse(value);
+      if (result.isNotEmpty) resultController.text = result;
+    });
+    return;
+  }
+
+  void _onSelectedChange(CurrencyCode? value) {
+    if (value == null) return;
+    if (selected.code == value.code) return;
+
+    if (_debounce?.isActive ?? false) _debounce?.cancel();
+
+    setState(() {
+      selected = value;
+    });
+
+    _debounce = Timer(Duration(milliseconds: 1000), () {
+      _search();
+      _debounce.cancel();
     });
   }
 }

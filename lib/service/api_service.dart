@@ -26,11 +26,12 @@ class ApiService {
     return currencies;
   }
 
-  static Future<List<Map<dynamic, dynamic>>> getExchangeRate(String code) async {
-    List<Map<dynamic, dynamic>> exchangeRate = [];
+  static Future<Map<dynamic, dynamic>> getExchangeRate(String code) async {
+    Map<dynamic, dynamic> exchangeRate = {};
 
     try {
-      String date = DateTime.now().toUtc().toIso8601String().substring(0, 10);
+      DateTime now = DateTime.now().subtract(Duration(hours: 5));
+      String date = now.toUtc().toIso8601String().substring(0, 10);
       String url = _exchangeRateUrl.replaceFirst('__code__', code);
       url = url.replaceFirst('__date__', date);
 
@@ -41,13 +42,10 @@ class ApiService {
       if (!data.containsKey(code) || data[code].isEmpty) {
         return exchangeRate;
       }
-      // data[code].map((key, value) {
-      //   exchangeRate.add({"name": key, "rate": value});
-      // });
-      for (var key in data[code].keys) {
-        exchangeRate.add({"code": key, "rate": data[code][key]});
-      }
-
+      exchangeRate = data[code];
+      // for (var key in data[code].keys) {
+      //   exchangeRate.add({"code": key, "rate": data[code][key]});
+      // }
     } catch (e) {
       print(e);
     }
