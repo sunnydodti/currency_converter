@@ -47,6 +47,14 @@ class StartupService {
           return CurrencyCode.fromJson(x);
         }));
     }
+
+    Map<dynamic, dynamic>? exchangeRates = box.get(Constants.exchangeRates);
+    exchangeRates ??= await ApiService.getExchangeRate(FileDb.selected.code);
+
+    if (exchangeRates.isNotEmpty) {
+      await box.put(Constants.exchangeRates, exchangeRates);
+      FileDb.exchangeRates = exchangeRates;
+    }
   }
 
   static Future<void> getCurrencyList() async {

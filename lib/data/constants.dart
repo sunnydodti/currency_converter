@@ -6,4 +6,6 @@ class Constants {
   static String amount = 'amount';
 
   static String  currenciesList = 'currenciesList';
+
+  static String exchangeRates = 'exchangeRates';
 }

@@ -31,7 +31,7 @@ class _SearchPageState extends State<SearchPage> {
   TextEditingController searchController = TextEditingController();
   TextEditingController resultController = TextEditingController();
 
-  Timer _debounce = Timer(Duration(milliseconds: 1), () {});
+  Timer? _debounce;
 
   @override
   void initState() {
@@ -131,6 +131,7 @@ class _SearchPageState extends State<SearchPage> {
                 target = value!;
                 resultController.text = _resultAmount() ?? "";
               });
+              box.put(Constants.target, target.toJson());
             },
           ),
           Spacer(),
@@ -174,6 +175,10 @@ class _SearchPageState extends State<SearchPage> {
     _currencies.add(target);
 
     amount = FileDb.amount;
+    searchController.text = amount.toString();
+    exchangeRates = FileDb.exchangeRates;
+    resultController.text = _resultAmount() ?? "";
+
     setState(() {});
   }
 
@@ -190,19 +195,22 @@ class _SearchPageState extends State<SearchPage> {
       exchangeRates = result;
       resultController.text = _resultAmount() ?? "";
     });
+
+    box.put(Constants.exchangeRates, exchangeRates);
   }
 
   void _onAmountChange(String value) {
     if (value.isEmpty) {
       setState(() => amount = 0.0);
+      resultController.text = _resultAmount() ?? "";
       return;
     }
-    String result = _resultAmount() ?? "";
     setState(() {
       amount = double.parse(value);
-      if (result.isNotEmpty) resultController.text = result;
+      String result = resultController.text = _resultAmount() ?? "";
     });
-    return;
+    box.put(Constants.amount, amount);
+    int a = 0;
   }
 
   void _onSelectedChange(CurrencyCode? value) {
@@ -217,7 +225,8 @@ class _SearchPageState extends State<SearchPage> {
 
     _debounce = Timer(Duration(milliseconds: 1000), () {
       _search();
-      _debounce.cancel();
+      box.put(Constants.selected, selected.toJson());
+      _debounce?.cancel();
     });
   }
 }
