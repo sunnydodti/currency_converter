@@ -8,6 +8,7 @@ class CurrencyTile extends StatelessWidget {
   final double amount;
   final double rate;
   final VoidCallback onTap;
+
   const CurrencyTile({
     super.key,
     required this.currency,

@@ -32,12 +32,21 @@ class _SearchPageState extends State<SearchPage> {
   TextEditingController resultController = TextEditingController();
 
   Timer? _debounce;
+  final FocusNode _focusNode = FocusNode();
 
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
     _initializeDefaults();
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    resultController.dispose();
+    _focusNode.dispose();
+    super.dispose();
   }
 
   @override
@@ -74,6 +83,7 @@ class _SearchPageState extends State<SearchPage> {
             amount: amount,
             rate: rate,
             onTap: () {
+              _focusNode.unfocus();
               showCurrencyBottomSheet(context, _currencies[index], rate);
             },
           );
@@ -89,7 +99,7 @@ class _SearchPageState extends State<SearchPage> {
         builder: (context) {
           return Container(
             padding: EdgeInsets.all(16),
-            height: 250,
+            height: 230,
             child: Column(
               children: [
                 ListTile(
@@ -100,30 +110,43 @@ class _SearchPageState extends State<SearchPage> {
                 ListTile(
                   title: Text(
                       "$amount ${selected.code.toUpperCase()} is equivalent to:"),
-                  subtitle: Text("${currency.code.toUpperCase()}: ${rate * amount}"),
+                  subtitle:
+                      Text("${currency.code.toUpperCase()}: ${rate * amount}"),
                 ),
                 Row(
                   children: [
-                    Expanded(
-                        child: ElevatedButton(
-                            onPressed: () {
-                              _onSelectedChange(currency);
-                              if (mounted) Navigator.pop(context);
-                            },
-                            child: Text("Select Search"))),
-                    Expanded(
-                        child: ElevatedButton(
-                            onPressed: () {
-                              _onResultChange(currency);
-                              if (mounted) Navigator.pop(context);
-                            },
-                            child: Text("Select Result"))),
+                    _selectSearchButton(currency),
+                    _selectResultButton(currency),
                   ],
                 )
               ],
             ),
           );
         });
+  }
+
+  Expanded _selectResultButton(CurrencyCode currency) {
+    return Expanded(
+        child: ElevatedButton(
+            onPressed: () async {
+              _onResultChange(currency);
+              await Future.delayed(Duration(milliseconds: 200));
+              _focusNode.requestFocus();
+              if (mounted) {
+                Navigator.pop(context);
+              }
+            },
+            child: Text("Select Result")));
+  }
+
+  Expanded _selectSearchButton(CurrencyCode currency) {
+    return Expanded(
+        child: ElevatedButton(
+            onPressed: () {
+              _onSelectedChange(currency);
+              if (mounted) Navigator.pop(context);
+            },
+            child: Text("Select Search")));
   }
 
   Widget _buildSearch() {
@@ -144,6 +167,7 @@ class _SearchPageState extends State<SearchPage> {
           Spacer(),
           Expanded(
             child: TextField(
+              focusNode: _focusNode,
               controller: searchController,
               decoration: InputDecoration(
                 hintText: "0.0",
@@ -252,7 +276,6 @@ class _SearchPageState extends State<SearchPage> {
     }
     setState(() {
       amount = double.parse(value);
-      String result = resultController.text = _resultAmount() ?? "";
     });
     box.put(Constants.amount, amount);
   }
