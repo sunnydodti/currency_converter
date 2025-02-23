@@ -36,7 +36,6 @@ class _ColoredButtonState extends State<ColoredButton> {
     return GestureDetector(
       onTap: () {
         if (toggle) setState(() => _isActive = !_isActive);
-        print("Button pressed");
         widget.onPressed();
       },
       child: ColoredText(text: widget.text, color: color),

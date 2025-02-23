@@ -419,27 +419,34 @@ class _SearchPageState extends State<SearchPage> {
       child: Row(
         children: [
           Text("Search by:"),
+          SizedBox(width: 8),
           Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
               child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              ColoredButton(
-                text: "Name",
-                onPressed: () {
-                  searchByName = !searchByName;
-                  _onSearchChange(searchController.text);
-                },
-                isActive: searchByName,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  ColoredButton(
+                    text: "Currency Name",
+                    onPressed: () {
+                      searchByName = !searchByName;
+                      _onSearchChange(searchController.text);
+                    },
+                    isActive: searchByName,
+                  ),
+                  SizedBox(width: 8),
+                  ColoredButton(
+                    text: "Currency Code",
+                    onPressed: () {
+                      searchByCode = !searchByCode;
+                      _onSearchChange(searchController.text);
+                    },
+                    isActive: searchByCode,
+                  ),
+                ],
               ),
-              ColoredButton(
-                  text: "Code",
-                  onPressed: () {
-                    searchByCode = !searchByCode;
-                    _onSearchChange(searchController.text);
-                  },
-                  isActive: searchByCode),
-            ],
-          ))
+            ),
+          )
         ],
       ),
     );

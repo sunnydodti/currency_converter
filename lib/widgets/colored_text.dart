@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 class ColoredText extends StatelessWidget {
   final String text;
   Color? color;
-  ColoredText({super.key, required this.text, this.color});
+  final double fontSize;
+
+  ColoredText(
+      {super.key, required this.text, this.color, this.fontSize = 14.0});
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +20,7 @@ class ColoredText extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: const TextStyle(color: Colors.white, fontSize: 16.0),
+        style: TextStyle(color: Colors.white, fontSize: fontSize),
       ),
     );
   }
