@@ -9,6 +9,7 @@ import 'package:hive_ce/hive.dart';
 import '../data/constants.dart';
 import '../models/currency_code.dart';
 import '../service/api_service.dart';
+import '../widgets/colored_button.dart';
 
 class SearchPage extends StatefulWidget {
   const SearchPage({super.key});
@@ -29,11 +30,15 @@ class _SearchPageState extends State<SearchPage> {
   double amount = 0.0;
 
   String currencyDate = "";
-  TextEditingController searchController = TextEditingController();
+  TextEditingController amountController = TextEditingController();
   TextEditingController resultController = TextEditingController();
+  TextEditingController searchController = TextEditingController();
 
   Timer? _debounce;
   final FocusNode _focusNode = FocusNode();
+
+  bool searchByCode = true;
+  bool searchByName = false;
 
   @override
   void initState() {
@@ -44,8 +49,9 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   void dispose() {
-    searchController.dispose();
+    amountController.dispose();
     resultController.dispose();
+    searchController.dispose();
     _focusNode.dispose();
     super.dispose();
   }
@@ -79,25 +85,56 @@ class _SearchPageState extends State<SearchPage> {
 
   Expanded _buildCurrencyList() {
     return Expanded(
-      child: ListView.builder(
-        itemCount: _currencies.length,
-        itemBuilder: (context, index) {
-          double rate = 0.0;
-          if (exchangeRates.isNotEmpty) {
-            rate =
-                double.parse(exchangeRates[_currencies[index].code].toString());
-          }
+      child: Column(
+        children: [
+          _buildSearchField(),
+          _buildSearchCount(),
+          _buildSearchFilters(),
+          Expanded(
+            child: ListView.builder(
+              itemCount: _currencies.length,
+              itemBuilder: (context, index) {
+                double rate = 0.0;
+                if (exchangeRates.isNotEmpty) {
+                  rate = double.parse(
+                      exchangeRates[_currencies[index].code].toString());
+                }
 
-          return CurrencyTile(
-            currency: _currencies[index],
-            amount: amount,
-            rate: rate,
-            onTap: () {
-              _focusNode.unfocus();
-              showCurrencyBottomSheet(context, _currencies[index], rate);
+                return CurrencyTile(
+                  currency: _currencies[index],
+                  amount: amount,
+                  rate: rate,
+                  onTap: () {
+                    _focusNode.unfocus();
+                    showCurrencyBottomSheet(context, _currencies[index], rate);
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Padding _buildSearchField() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: TextField(
+        autofillHints: _currencies.map((e) => e.code).toList(),
+        controller: searchController,
+        decoration: InputDecoration(
+          suffix: IconButton(
+            icon: Icon(Icons.clear),
+            onPressed: () {
+              searchController.clear();
+              _currencies = FileDb.currenciesList;
+              setState(() {});
             },
-          );
-        },
+          ),
+          labelText: 'Search',
+        ),
+        onChanged: _onSearchChange,
       ),
     );
   }
@@ -191,7 +228,7 @@ class _SearchPageState extends State<SearchPage> {
             child: TextField(
               textAlign: TextAlign.end,
               focusNode: _focusNode,
-              controller: searchController,
+              controller: amountController,
               decoration: InputDecoration(
                 hintText: "0.0",
                 helperStyle: TextStyle(overflow: TextOverflow.fade),
@@ -283,7 +320,7 @@ class _SearchPageState extends State<SearchPage> {
     _currencies.add(target);
 
     amount = FileDb.amount;
-    searchController.text = amount.toString();
+    amountController.text = amount.toString();
     exchangeRates = FileDb.exchangeRates;
     resultController.text = _resultAmount() ?? "";
 
@@ -339,5 +376,72 @@ class _SearchPageState extends State<SearchPage> {
       box.put(Constants.selected, selected.toJson());
       _debounce?.cancel();
     });
+  }
+
+  _onSearchChange(String value) {
+    if (value.isEmpty) {
+      _currencies = FileDb.currenciesList;
+      setState(() {});
+      return;
+    }
+
+    _currencies = FileDb.currenciesList.where((element) {
+      if (searchByName &&
+          element.name.toLowerCase().contains(value.toLowerCase())) {
+        return true;
+      }
+      if (searchByCode && element.code.contains(value.toLowerCase())) {
+        return true;
+      }
+      return false;
+    }).toList();
+    setState(() {});
+  }
+
+  Widget _buildSearchCount() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Row(
+        children: [
+          Text(
+            "Showing ${_currencies.length} of ${FileDb.currenciesList.length}",
+            textScaler: TextScaler.linear(.8),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchFilters() {
+    if (searchController.text.isEmpty) return SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 16.0),
+      child: Row(
+        children: [
+          Text("Search by:"),
+          Expanded(
+              child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              ColoredButton(
+                text: "Name",
+                onPressed: () {
+                  searchByName = !searchByName;
+                  _onSearchChange(searchController.text);
+                },
+                isActive: searchByName,
+              ),
+              ColoredButton(
+                  text: "Code",
+                  onPressed: () {
+                    searchByCode = !searchByCode;
+                    _onSearchChange(searchController.text);
+                  },
+                  isActive: searchByCode),
+            ],
+          ))
+        ],
+      ),
+    );
   }
 }
