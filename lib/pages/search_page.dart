@@ -21,6 +21,7 @@ class _SearchPageState extends State<SearchPage> {
   Box box = Hive.box(Constants.box);
 
   List<CurrencyCode> _currencies = [];
+  List<DropdownMenuEntry<CurrencyCode>> dropdownMenuEntries = [];
   Map<dynamic, dynamic> exchangeRates = {};
 
   late CurrencyCode selected;
@@ -145,7 +146,10 @@ class _SearchPageState extends State<SearchPage> {
                 Navigator.pop(context);
               }
             },
-            child: Text("Select Result")));
+            child: Text(
+              "To ${currency.code.toUpperCase()}",
+              overflow: TextOverflow.fade,
+            )));
   }
 
   Expanded _selectSearchButton(CurrencyCode currency) {
@@ -155,7 +159,10 @@ class _SearchPageState extends State<SearchPage> {
               _onSelectedChange(currency);
               if (mounted) Navigator.pop(context);
             },
-            child: Text("Select Search")));
+            child: Text(
+              "From ${currency.code.toUpperCase()}",
+              overflow: TextOverflow.fade,
+            )));
   }
 
   Widget _buildSearch() {
@@ -163,25 +170,35 @@ class _SearchPageState extends State<SearchPage> {
       padding: const EdgeInsets.all(16.0),
       child: Row(
         children: [
-          DropdownButton<CurrencyCode>(
-            value: selected,
-            items: _currencies.map((CurrencyCode currency) {
-              return DropdownMenuItem<CurrencyCode>(
-                value: currency,
-                child: Text(currency.code),
-              );
-            }).toList(),
-            onChanged: _onSelectedChange,
-          ),
-          Spacer(),
           Expanded(
+            flex: 2,
+            child: DropdownMenu<CurrencyCode>(
+              helperText: 'From',
+              enableSearch: true,
+              enableFilter: true,
+              selectedTrailingIcon: Icon(Icons.check_outlined),
+              menuHeight: 300,
+              initialSelection: selected,
+              requestFocusOnTap: true,
+              dropdownMenuEntries: dropdownMenuEntries,
+              onSelected: _onSelectedChange,
+            ),
+          ),
+          // onChanged: _onSelectedChange, value: _currencies[0]),
+          Spacer(flex: 1),
+          Expanded(
+            flex: 3,
             child: TextField(
+              textAlign: TextAlign.end,
               focusNode: _focusNode,
               controller: searchController,
               decoration: InputDecoration(
                 hintText: "0.0",
-                helperText: selected.name,
                 helperStyle: TextStyle(overflow: TextOverflow.fade),
+                helper: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [Text(selected.name)],
+                ),
               ),
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
@@ -198,24 +215,33 @@ class _SearchPageState extends State<SearchPage> {
       padding: const EdgeInsets.all(16.0),
       child: Row(
         children: [
-          DropdownButton<CurrencyCode>(
-            value: target,
-            items: _currencies.map((CurrencyCode currency) {
-              return DropdownMenuItem<CurrencyCode>(
-                value: currency,
-                child: Text(currency.code),
-              );
-            }).toList(),
-            onChanged: _onResultChange,
-          ),
-          Spacer(),
           Expanded(
+            flex: 2,
+            child: DropdownMenu<CurrencyCode>(
+              helperText: 'To',
+              enableSearch: true,
+              enableFilter: true,
+              selectedTrailingIcon: Icon(Icons.check_outlined),
+              menuHeight: 300,
+              initialSelection: target,
+              requestFocusOnTap: true,
+              dropdownMenuEntries: dropdownMenuEntries,
+              onSelected: _onResultChange,
+            ),
+          ),
+          Spacer(flex: 1),
+          Expanded(
+            flex: 3,
             child: TextField(
+              textAlign: TextAlign.end,
               enabled: false,
               controller: resultController,
               decoration: InputDecoration(
                 hintText: "0.0",
-                helperText: target.name,
+                helper: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [Text(target.name)],
+                ),
                 helperStyle: TextStyle(overflow: TextOverflow.fade),
               ),
               readOnly: true,
@@ -260,6 +286,15 @@ class _SearchPageState extends State<SearchPage> {
     searchController.text = amount.toString();
     exchangeRates = FileDb.exchangeRates;
     resultController.text = _resultAmount() ?? "";
+
+    dropdownMenuEntries = _currencies.map(
+      (currency) {
+        return DropdownMenuEntry(
+          value: currency,
+          label: currency.code,
+        );
+      },
+    ).toList();
 
     setState(() {});
   }
