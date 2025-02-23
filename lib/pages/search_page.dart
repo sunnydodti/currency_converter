@@ -72,11 +72,58 @@ class _SearchPageState extends State<SearchPage> {
           return CurrencyTile(
             currency: _currencies[index],
             amount: amount,
-            rate: rate ?? 0.0,
+            rate: rate,
+            onTap: () {
+              showCurrencyBottomSheet(context, _currencies[index], rate);
+            },
           );
         },
       ),
     );
+  }
+
+  Future<dynamic> showCurrencyBottomSheet(
+      BuildContext context, CurrencyCode currency, double rate) {
+    return showModalBottomSheet(
+        context: context,
+        builder: (context) {
+          return Container(
+            padding: EdgeInsets.all(16),
+            height: 250,
+            child: Column(
+              children: [
+                ListTile(
+                  title: Text(currency.name),
+                  subtitle: Text("Rate: $rate"),
+                  trailing: Text(currency.code.toUpperCase()),
+                ),
+                ListTile(
+                  title: Text(
+                      "$amount ${selected.code.toUpperCase()} is equivalent to:"),
+                  subtitle: Text("${currency.code.toUpperCase()}: ${rate * amount}"),
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                        child: ElevatedButton(
+                            onPressed: () {
+                              _onSelectedChange(currency);
+                              if (mounted) Navigator.pop(context);
+                            },
+                            child: Text("Select Search"))),
+                    Expanded(
+                        child: ElevatedButton(
+                            onPressed: () {
+                              _onResultChange(currency);
+                              if (mounted) Navigator.pop(context);
+                            },
+                            child: Text("Select Result"))),
+                  ],
+                )
+              ],
+            ),
+          );
+        });
   }
 
   Widget _buildSearch() {
@@ -126,13 +173,7 @@ class _SearchPageState extends State<SearchPage> {
                 child: Text(currency.code),
               );
             }).toList(),
-            onChanged: (value) {
-              setState(() {
-                target = value!;
-                resultController.text = _resultAmount() ?? "";
-              });
-              box.put(Constants.target, target.toJson());
-            },
+            onChanged: _onResultChange,
           ),
           Spacer(),
           Expanded(
@@ -151,6 +192,14 @@ class _SearchPageState extends State<SearchPage> {
         ],
       ),
     );
+  }
+
+  void _onResultChange(CurrencyCode? value) {
+    setState(() {
+      target = value!;
+      resultController.text = _resultAmount() ?? "";
+    });
+    box.put(Constants.target, target.toJson());
   }
 
   String? _resultAmount() {
@@ -187,10 +236,6 @@ class _SearchPageState extends State<SearchPage> {
         await ApiService.getExchangeRate(selected.code);
     if (result.isEmpty) return;
 
-    // exchangeRates = List<ExchangeRate>.from(result.map((x) {
-    //   return ExchangeRate.fromJson(x);
-    // }));
-
     setState(() {
       exchangeRates = result;
       resultController.text = _resultAmount() ?? "";
@@ -210,7 +255,6 @@ class _SearchPageState extends State<SearchPage> {
       String result = resultController.text = _resultAmount() ?? "";
     });
     box.put(Constants.amount, amount);
-    int a = 0;
   }
 
   void _onSelectedChange(CurrencyCode? value) {
@@ -223,7 +267,7 @@ class _SearchPageState extends State<SearchPage> {
       selected = value;
     });
 
-    _debounce = Timer(Duration(milliseconds: 1000), () {
+    _debounce = Timer(Duration(milliseconds: 200), () {
       _search();
       box.put(Constants.selected, selected.toJson());
       _debounce?.cancel();

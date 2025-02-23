@@ -7,13 +7,19 @@ class CurrencyTile extends StatelessWidget {
   final CurrencyCode currency;
   final double amount;
   final double rate;
-
-  const CurrencyTile(
-      {super.key, required this.currency, this.amount = 0.0, this.rate = 0.0});
+  final VoidCallback onTap;
+  const CurrencyTile({
+    super.key,
+    required this.currency,
+    this.amount = 0.0,
+    this.rate = 0.0,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
+      onTap: onTap,
       title: Text("${currency.code} (${rate.toStringAsFixed(5)})"),
       subtitle: Text(currency.name),
       trailing: ResultTile(
