@@ -14,7 +14,7 @@ class ResultTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: color.withAlpha(100),
+        color: color.withAlpha(50),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(

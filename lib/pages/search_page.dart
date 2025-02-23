@@ -51,8 +51,17 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
+    Icon icon = Theme.of(context).brightness == Brightness.light
+        ? Icon(Icons.light_mode_outlined)
+        : Icon(Icons.dark_mode_outlined);
     return Scaffold(
-      appBar: AppBar(title: Text("Currency Exchange"), centerTitle: true),
+      appBar: AppBar(
+        title: Text("Currency Exchange"),
+        centerTitle: true,
+        actions: [
+          IconButton(onPressed: () {}, icon: icon),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Column(
