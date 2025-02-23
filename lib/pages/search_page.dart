@@ -5,8 +5,10 @@ import 'package:currency_converter/widgets/currency_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_ce/hive.dart';
+import 'package:provider/provider.dart';
 
 import '../data/constants.dart';
+import '../data/theme_provider.dart';
 import '../models/currency_code.dart';
 import '../service/api_service.dart';
 import '../widgets/colored_button.dart';
@@ -58,17 +60,8 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    Icon icon = Theme.of(context).brightness == Brightness.light
-        ? Icon(Icons.light_mode_outlined)
-        : Icon(Icons.dark_mode_outlined);
     return Scaffold(
-      appBar: AppBar(
-        title: Text("Currency Exchange"),
-        centerTitle: true,
-        actions: [
-          IconButton(onPressed: () {}, icon: icon),
-        ],
-      ),
+      appBar: _buildAppBar(),
       body: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Column(
@@ -80,6 +73,23 @@ class _SearchPageState extends State<SearchPage> {
           ],
         ),
       ),
+    );
+  }
+
+  AppBar _buildAppBar() {
+    Icon icon = Theme.of(context).brightness == Brightness.light
+        ? Icon(Icons.light_mode_outlined)
+        : Icon(Icons.dark_mode_outlined);
+    return AppBar(
+      title: Text("Currency Exchange"),
+      centerTitle: true,
+      actions: [
+        IconButton(
+            onPressed: () {
+              context.read<ThemeProvider>().toggleTheme();
+            },
+            icon: icon),
+      ],
     );
   }
 
@@ -162,8 +172,8 @@ class _SearchPageState extends State<SearchPage> {
                 ),
                 Row(
                   children: [
-                    _selectSearchButton(currency),
-                    _selectResultButton(currency),
+                    _selectFromButton(currency),
+                    _selectToButton(currency),
                   ],
                 )
               ],
@@ -172,7 +182,7 @@ class _SearchPageState extends State<SearchPage> {
         });
   }
 
-  Expanded _selectResultButton(CurrencyCode currency) {
+  Expanded _selectToButton(CurrencyCode currency) {
     return Expanded(
         child: ElevatedButton(
             onPressed: () async {
@@ -189,7 +199,7 @@ class _SearchPageState extends State<SearchPage> {
             )));
   }
 
-  Expanded _selectSearchButton(CurrencyCode currency) {
+  Expanded _selectFromButton(CurrencyCode currency) {
     return Expanded(
         child: ElevatedButton(
             onPressed: () {

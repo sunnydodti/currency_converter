@@ -8,4 +8,5 @@ class Constants {
   static String  currenciesList = 'currenciesList';
 
   static String exchangeRates = 'exchangeRates';
+  static String  isDarkMode = 'isDarkMode';
 }
