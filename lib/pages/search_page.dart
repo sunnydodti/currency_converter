@@ -229,7 +229,7 @@ class _SearchPageState extends State<SearchPage> {
   String? _resultAmount() {
     if (exchangeRates.isEmpty) return null;
     if (!exchangeRates.containsKey(target.code)) return "0.0";
-    double rate = exchangeRates[target.code];
+    double rate = double.parse(exchangeRates[target.code].toString());
 
     if (rate == 0 || rate == 0.0) return "0.0";
     double result = amount * rate;
