@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:provider/provider.dart';
+import 'package:search_choices/search_choices.dart';
 
 import '../data/constants.dart';
 import '../data/theme_provider.dart';
@@ -25,10 +26,11 @@ class _SearchPageState extends State<SearchPage> {
 
   List<CurrencyCode> _currencies = [];
   List<DropdownMenuEntry<CurrencyCode>> dropdownMenuEntries = [];
+  List<DropdownMenuItem<CurrencyCode>> dropdownMenuItems = [];
   Map<dynamic, dynamic> exchangeRates = {};
 
-  late CurrencyCode selected;
-  late CurrencyCode target;
+  late CurrencyCode fromCurrency;
+  late CurrencyCode toCurrency;
   double amount = 0.0;
 
   String currencyDate = "";
@@ -66,8 +68,8 @@ class _SearchPageState extends State<SearchPage> {
         padding: const EdgeInsets.all(8.0),
         child: Column(
           children: [
-            _buildSearch(),
-            _buildResults(),
+            _buildFrom(),
+            _buildTo(),
             Divider(),
             _buildCurrencyList(),
           ],
@@ -166,7 +168,7 @@ class _SearchPageState extends State<SearchPage> {
                 ),
                 ListTile(
                   title: Text(
-                      "$amount ${selected.code.toUpperCase()} is equivalent to:"),
+                      "$amount ${fromCurrency.code.toUpperCase()} is equivalent to:"),
                   subtitle:
                       Text("${currency.code.toUpperCase()}: ${rate * amount}"),
                 ),
@@ -203,7 +205,7 @@ class _SearchPageState extends State<SearchPage> {
     return Expanded(
         child: ElevatedButton(
             onPressed: () {
-              _onSelectedChange(currency);
+              _onFromChange(currency);
               if (mounted) Navigator.pop(context);
             },
             child: Text(
@@ -212,23 +214,29 @@ class _SearchPageState extends State<SearchPage> {
             )));
   }
 
-  Widget _buildSearch() {
+  Widget _buildFrom() {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Row(
         children: [
           Expanded(
             flex: 2,
-            child: DropdownMenu<CurrencyCode>(
-              helperText: 'From',
-              enableSearch: true,
-              enableFilter: true,
-              selectedTrailingIcon: Icon(Icons.check_outlined),
-              menuHeight: 300,
-              initialSelection: selected,
-              requestFocusOnTap: true,
-              dropdownMenuEntries: dropdownMenuEntries,
-              onSelected: _onSelectedChange,
+            child: SearchChoices.single(
+              items: dropdownMenuItems,
+              value: fromCurrency,
+              hint: "From",
+              searchHint: "Search by currency name or code",
+              onChanged: _onFromChange,
+              isExpanded: true,
+              displayClearIcon: false,
+              searchFn: _dropDownSearch,
+              selectedValueWidgetFn: (currency) {
+                return Container(
+                  padding: EdgeInsets.all(8),
+                  child: Text(currency.code.toUpperCase()),
+                );
+              },
+              closeButton: "Close",
             ),
           ),
           // onChanged: _onSelectedChange, value: _currencies[0]),
@@ -244,7 +252,7 @@ class _SearchPageState extends State<SearchPage> {
                 helperStyle: TextStyle(overflow: TextOverflow.fade),
                 helper: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
-                  children: [Text(selected.name)],
+                  children: [Text(fromCurrency.name)],
                 ),
               ),
               keyboardType: TextInputType.number,
@@ -257,23 +265,44 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  Widget _buildResults() {
+  _dropDownSearch(String keyword, items) {
+    List<int> result = [];
+    if (keyword.isEmpty) {
+      result = Iterable<int>.generate(items.length).toList();
+      return (result);
+    }
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].value.name.toLowerCase().contains(keyword.toLowerCase()) ||
+          items[i].value.code.toLowerCase().contains(keyword.toLowerCase())) {
+        result.add(i);
+      }
+    }
+    return (result);
+  }
+
+  Widget _buildTo() {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Row(
         children: [
           Expanded(
             flex: 2,
-            child: DropdownMenu<CurrencyCode>(
-              helperText: 'To',
-              enableSearch: true,
-              enableFilter: true,
-              selectedTrailingIcon: Icon(Icons.check_outlined),
-              menuHeight: 300,
-              initialSelection: target,
-              requestFocusOnTap: true,
-              dropdownMenuEntries: dropdownMenuEntries,
-              onSelected: _onResultChange,
+            child: SearchChoices.single(
+              items: dropdownMenuItems,
+              value: toCurrency,
+              hint: "From",
+              searchHint: "Search by currency name or code",
+              onChanged: _onResultChange,
+              isExpanded: true,
+              displayClearIcon: false,
+              searchFn: _dropDownSearch,
+              selectedValueWidgetFn: (currency) {
+                return Container(
+                  padding: EdgeInsets.all(8),
+                  child: Text(currency.code.toUpperCase()),
+                );
+              },
+              closeButton: "Close",
             ),
           ),
           Spacer(flex: 1),
@@ -287,7 +316,7 @@ class _SearchPageState extends State<SearchPage> {
                 hintText: "0.0",
                 helper: Row(
                   mainAxisAlignment: MainAxisAlignment.end,
-                  children: [Text(target.name)],
+                  children: [Text(toCurrency.name)],
                 ),
                 helperStyle: TextStyle(overflow: TextOverflow.fade),
               ),
@@ -302,16 +331,16 @@ class _SearchPageState extends State<SearchPage> {
 
   void _onResultChange(CurrencyCode? value) {
     setState(() {
-      target = value!;
+      toCurrency = value!;
       resultController.text = _resultAmount() ?? "";
     });
-    box.put(Constants.target, target.toJson());
+    box.put(Constants.target, toCurrency.toJson());
   }
 
   String? _resultAmount() {
     if (exchangeRates.isEmpty) return null;
-    if (!exchangeRates.containsKey(target.code)) return "0.0";
-    double rate = double.parse(exchangeRates[target.code].toString());
+    if (!exchangeRates.containsKey(toCurrency.code)) return "0.0";
+    double rate = double.parse(exchangeRates[toCurrency.code].toString());
 
     if (rate == 0 || rate == 0.0) return "0.0";
     double result = amount * rate;
@@ -321,13 +350,13 @@ class _SearchPageState extends State<SearchPage> {
   void _initializeDefaults() {
     _currencies = FileDb.currenciesList;
 
-    selected = FileDb.selected;
-    target = FileDb.target;
+    fromCurrency = FileDb.selected;
+    toCurrency = FileDb.target;
 
-    _currencies.removeWhere((e) => e.code == selected.code);
-    _currencies.removeWhere((e) => e.code == target.code);
-    _currencies.add(selected);
-    _currencies.add(target);
+    _currencies.removeWhere((e) => e.code == fromCurrency.code);
+    _currencies.removeWhere((e) => e.code == toCurrency.code);
+    _currencies.add(fromCurrency);
+    _currencies.add(toCurrency);
 
     amount = FileDb.amount;
     amountController.text = amount.toString();
@@ -343,12 +372,21 @@ class _SearchPageState extends State<SearchPage> {
       },
     ).toList();
 
+    dropdownMenuItems = _currencies.map(
+      (currency) {
+        return DropdownMenuItem(
+          value: currency,
+          child: Text(currency.code),
+        );
+      },
+    ).toList();
+
     setState(() {});
   }
 
   void _search() async {
     Map<dynamic, dynamic> result =
-        await ApiService.getExchangeRate(selected.code);
+        await ApiService.getExchangeRate(fromCurrency.code);
     if (result.isEmpty) return;
 
     setState(() {
@@ -371,19 +409,19 @@ class _SearchPageState extends State<SearchPage> {
     box.put(Constants.amount, amount);
   }
 
-  void _onSelectedChange(CurrencyCode? value) {
+  void _onFromChange(CurrencyCode? value) {
     if (value == null) return;
-    if (selected.code == value.code) return;
+    if (fromCurrency.code == value.code) return;
 
     if (_debounce?.isActive ?? false) _debounce?.cancel();
 
     setState(() {
-      selected = value;
+      fromCurrency = value;
     });
 
     _debounce = Timer(Duration(milliseconds: 200), () {
       _search();
-      box.put(Constants.selected, selected.toJson());
+      box.put(Constants.selected, fromCurrency.toJson());
       _debounce?.cancel();
     });
   }
