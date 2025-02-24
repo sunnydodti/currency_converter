@@ -1,4 +1,5 @@
 import 'package:currency_converter/pages/search_page.dart';
+import 'package:currency_converter/widgets/mobile_wrapper.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -24,7 +25,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Currency Converter',
       theme: context.watch<ThemeProvider>().theme,
-      home: const SearchPage(),
+      home: MobileWrapper(child: const SearchPage()),
     );
   }
 }
