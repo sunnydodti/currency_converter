@@ -34,8 +34,8 @@ class _SearchPageState extends State<SearchPage> {
   double amount = 0.0;
 
   String currencyDate = "";
-  TextEditingController amountController = TextEditingController();
-  TextEditingController resultController = TextEditingController();
+  TextEditingController fromController = TextEditingController();
+  TextEditingController toController = TextEditingController();
   TextEditingController searchController = TextEditingController();
 
   Timer? _debounce;
@@ -53,8 +53,8 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   void dispose() {
-    amountController.dispose();
-    resultController.dispose();
+    fromController.dispose();
+    toController.dispose();
     searchController.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -246,7 +246,7 @@ class _SearchPageState extends State<SearchPage> {
             child: TextField(
               textAlign: TextAlign.end,
               focusNode: _focusNode,
-              controller: amountController,
+              controller: fromController,
               decoration: InputDecoration(
                 hintText: "0.0",
                 helperStyle: TextStyle(overflow: TextOverflow.fade),
@@ -311,7 +311,7 @@ class _SearchPageState extends State<SearchPage> {
             child: TextField(
               textAlign: TextAlign.end,
               enabled: false,
-              controller: resultController,
+              controller: toController,
               decoration: InputDecoration(
                 hintText: "0.0",
                 helper: Row(
@@ -332,7 +332,7 @@ class _SearchPageState extends State<SearchPage> {
   void _onResultChange(CurrencyCode? value) {
     setState(() {
       toCurrency = value!;
-      resultController.text = _resultAmount() ?? "";
+      toController.text = _resultAmount() ?? "";
     });
     box.put(Constants.target, toCurrency.toJson());
   }
@@ -359,9 +359,9 @@ class _SearchPageState extends State<SearchPage> {
     _currencies.add(toCurrency);
 
     amount = FileDb.amount;
-    amountController.text = amount.toString();
+    fromController.text = amount.toString();
     exchangeRates = FileDb.exchangeRates;
-    resultController.text = _resultAmount() ?? "";
+    toController.text = _resultAmount() ?? "";
 
     dropdownMenuEntries = _currencies.map(
       (currency) {
@@ -391,7 +391,7 @@ class _SearchPageState extends State<SearchPage> {
 
     setState(() {
       exchangeRates = result;
-      resultController.text = _resultAmount() ?? "";
+      toController.text = _resultAmount() ?? "";
     });
 
     box.put(Constants.exchangeRates, exchangeRates);
@@ -400,11 +400,12 @@ class _SearchPageState extends State<SearchPage> {
   void _onAmountChange(String value) {
     if (value.isEmpty) {
       setState(() => amount = 0.0);
-      resultController.text = _resultAmount() ?? "";
+      toController.text = _resultAmount() ?? "";
       return;
     }
     setState(() {
       amount = double.parse(value);
+      toController.text = _resultAmount() ?? "";
     });
     box.put(Constants.amount, amount);
   }
