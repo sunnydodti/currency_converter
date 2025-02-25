@@ -1,6 +1,5 @@
 import 'package:currency_converter/data/file_db.dart';
 import 'package:currency_converter/service/api_service.dart';
-import 'package:currency_converter/service/shared_preference_service.dart';
 import 'package:hive_ce_flutter/adapters.dart';
 
 import '../data/constants.dart';
@@ -21,7 +20,6 @@ class StartupService {
   }
 
   static Future<void> _initHive() async {
-    await SharedPreferenceService.init();
     await Hive.initFlutter();
     await Hive.openBox(Constants.box);
   }
